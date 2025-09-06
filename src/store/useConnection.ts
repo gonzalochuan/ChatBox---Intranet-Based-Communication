@@ -12,6 +12,9 @@ interface ConnectionState {
   init: () => Promise<void>;
   setUserLanUrl: (url: string | null) => void;
   reinit: () => Promise<void>;
+  setLan: (url?: string | null) => Promise<void>;
+  setInternet: (url?: string | null) => Promise<void>;
+  toggleInternet: () => Promise<void>;
 }
 
 async function tryHealth(url: string, timeoutMs = 800): Promise<boolean> {
@@ -74,5 +77,54 @@ export const useConnection = create<ConnectionState>((set, get) => ({
   },
   reinit: async () => {
     await get().init();
+  },
+  setLan: async (url) => {
+    const candidate = url ?? getStoredLan() ?? process.env.NEXT_PUBLIC_LAN_BASE_URL ?? "http://localhost:4000";
+    if (await tryHealth(candidate)) {
+      set({ mode: "lan", baseUrl: candidate });
+    } else {
+      // If LAN not reachable, fall back to offline (non-destructive)
+      set({ mode: "offline", baseUrl: null });
+    }
+  },
+  setInternet: async (url) => {
+    const candidate = url ?? process.env.NEXT_PUBLIC_CLOUD_BASE_URL ?? "";
+    if (candidate && (await tryHealth(candidate))) {
+      set({ mode: "cloud", baseUrl: candidate });
+    } else {
+      // If cloud not reachable, don't assume LAN; keep current or go offline
+      const userLan = getStoredLan();
+      const lan = userLan || process.env.NEXT_PUBLIC_LAN_BASE_URL || "http://localhost:4000";
+      if (await tryHealth(lan)) {
+        set({ mode: "lan", baseUrl: lan });
+      } else {
+        set({ mode: "offline", baseUrl: null });
+      }
+    }
+  },
+  toggleInternet: async () => {
+    const state = get();
+    const userLan = getStoredLan();
+    const lan = userLan || process.env.NEXT_PUBLIC_LAN_BASE_URL || "http://localhost:4000";
+    const cloud = process.env.NEXT_PUBLIC_CLOUD_BASE_URL || "";
+
+    if (state.mode === "lan") {
+      if (cloud && (await tryHealth(cloud))) {
+        set({ mode: "cloud", baseUrl: cloud });
+      }
+      return;
+    }
+    if (state.mode === "cloud") {
+      if (await tryHealth(lan)) {
+        set({ mode: "lan", baseUrl: lan });
+      }
+      return;
+    }
+    // If offline, prefer cloud, then LAN
+    if (cloud && (await tryHealth(cloud))) {
+      set({ mode: "cloud", baseUrl: cloud });
+    } else if (await tryHealth(lan)) {
+      set({ mode: "lan", baseUrl: lan });
+    }
   },
 }));

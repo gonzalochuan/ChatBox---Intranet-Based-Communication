@@ -2,6 +2,7 @@
 
 import ChatSidebar from "@/components/ChatSidebar";
 import ChatWindow from "@/components/ChatWindow";
+import LeftRail from "@/components/LeftRail";
 import { useEffect } from "react";
 import { useConnection } from "@/store/useConnection";
 import { useChatStore } from "@/store/useChat";
@@ -66,33 +67,59 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="h-dvh grid grid-rows-[56px_1fr]">
-      <header className="flex items-center justify-between px-4 border-b">
-        <div className="font-semibold">ChatBox</div>
-        <div className="flex items-center gap-3 text-sm text-gray-600">
-          <span className="hidden md:inline">MVP • Intranet-first</span>
-          {badge}
-          <button
-            className="ml-2 rounded-md border px-2 py-1 hover:bg-gray-50"
-            onClick={() => {
-              const v = prompt("Set LAN server URL", baseUrl || "http://192.168.0.100:4000");
-              if (v) {
-                setUserLanUrl(v);
-                reinit();
-              }
-            }}
-          >
-            Set LAN
-          </button>
+    <div className="app-theme relative min-h-dvh text-white bg-black">
+      {/* Grid background only; keep default strength from CSS */}
+      <div className="grid-layer" />
+
+      {/* App shell */}
+      <div className="relative z-10 h-dvh grid grid-rows-[64px_1fr] min-h-0">
+        {/* Top bar */}
+        <header className="flex items-center justify-between px-4 md:px-6 border-b border-white/10 bg-black/40 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="font-ethno-bold tracking-widest text-sm md:text-base">CHAT BOX</div>
+          </div>
+          <div className="flex items-center gap-3 text-xs md:text-sm text-white/70">
+            {badge}
+            <button
+              className="ml-2 rounded-md border border-white/20 bg-white/5 hover:bg-white/10 px-2 py-1"
+              onClick={() => {
+                const v = prompt("Set LAN server URL", baseUrl || "http://192.168.0.100:4000");
+                if (v) {
+                  setUserLanUrl(v);
+                  reinit();
+                }
+              }}
+            >
+              Set LAN
+            </button>
+            
+            
+          </div>
+        </header>
+
+        {/* 3-box responsive layout */}
+        <div className="grid grid-cols-12 gap-2 md:gap-4 h-full p-2 md:p-4 min-h-0">
+          {/* Left rail (horizontal pill on mobile, vertical pill on desktop) */}
+          <div className="col-span-12 md:col-span-1 xl:col-span-1 min-h-0">
+            <div className="h-14 md:h-full rounded-full md:rounded-[28px] border border-white/15 bg-black/40 backdrop-blur-sm shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset] overflow-hidden flex items-center justify-center">
+              <LeftRail />
+            </div>
+          </div>
+
+          {/* Messages list card (hidden on mobile when a chat is open) */}
+          <aside className={`col-span-12 md:col-span-4 lg:col-span-3 xl:col-span-3 min-h-0 ${activeChannelId ? "hidden md:block" : "block"}`}>
+            <div className="h-full rounded-3xl border border-white/15 bg-black/40 backdrop-blur-sm shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset] overflow-hidden flex flex-col min-h-0">
+              <ChatSidebar />
+            </div>
+          </aside>
+
+          {/* Chat window card (shown on mobile only when a chat is open) */}
+          <main className={`${activeChannelId ? "col-span-12" : "hidden"} md:block md:col-span-7 lg:col-span-8 xl:col-span-8 min-h-0`}>
+            <div className="h-full rounded-[28px] border border-white/15 bg-black/40 backdrop-blur-sm shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset] overflow-hidden flex flex-col min-h-0">
+              <ChatWindow />
+            </div>
+          </main>
         </div>
-      </header>
-      <div className="grid grid-cols-12 h-full">
-        <aside className="col-span-3 md:col-span-3 lg:col-span-3 xl:col-span-2 border-r overflow-y-auto">
-          <ChatSidebar />
-        </aside>
-        <main className="col-span-9 md:col-span-9 lg:col-span-9 xl:col-span-10 h-full">
-          <ChatWindow />
-        </main>
       </div>
     </div>
   );

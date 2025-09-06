@@ -1,20 +1,27 @@
 import { create } from "zustand";
 
-export type UserRole = "student" | "teacher" | "admin";
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-}
-
+// Minimal local profile store (optional). Not required by DM feature.
 interface AuthState {
-  user: User | null;
-  setUser: (u: User | null) => void;
+  userId: string;
+  name: string;
+  setProfile: (name: string) => void;
 }
+
+const getLocal = (k: string, fallback: string) => {
+  if (typeof window === "undefined") return fallback;
+  try { return localStorage.getItem(k) || fallback; } catch { return fallback; }
+};
 
 export const useAuth = create<AuthState>((set) => ({
-  user: null,
-  setUser: (u) => set({ user: u }),
+  userId: getLocal("authId", "u-me"),
+  name: getLocal("authName", "You"),
+  setProfile: (name: string) => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("authName", name);
+        localStorage.setItem("authId", "u-me");
+      }
+    } catch {}
+    set({ name, userId: "u-me" });
+  },
 }));

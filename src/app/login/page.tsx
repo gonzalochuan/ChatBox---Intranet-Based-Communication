@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SparkleGridOverlay from "@/components/SparkleGridOverlay";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -33,15 +34,16 @@ export default function LoginPage() {
         playsInline
       />
       <div className="grid-layer" />
+      <SparkleGridOverlay />
 
       {/* Top chrome to match Intro */}
-      <div className="absolute top-6 left-6 z-30 text-xs md:text-sm tracking-widest text-white/80">CB 2025</div>
+      <div className="absolute top-6 left-6 z-30 text-xs md:text-sm tracking-widest text-white/80 font-ethno-bold">CB 2025</div>
       <Link href="/" className="absolute top-6 right-6 z-30 text-xs md:text-sm tracking-wider text-white/80 hover:text-white">Back</Link>
 
       {/* Centered form card */}
-      <div className="relative z-10 min-h-[100dvh] flex items-center justify-center p-6">
+      <div className="relative z-10 min-h-[100dvh] flex items-center justify-center p-6 pt-24 sm:pt-28">
         <div className="w-full max-w-md rounded-2xl border border-white/15 bg-white/5 backdrop-blur-md shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset,0_10px_40px_-10px_rgba(0,0,0,0.6)] p-6 sm:p-8">
-          <h1 className="text-2xl font-semibold tracking-wide">Sign in</h1>
+          <h1 className="text-2xl font-akira-bold tracking-wide">Sign in</h1>
           <p className="text-sm text-white/70 mt-4">Welcome to ChatBox</p>
 
           <form onSubmit={onSubmit} className="mt-6 space-y-5">

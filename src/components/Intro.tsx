@@ -8,6 +8,7 @@ export default function Intro() {
   const [isPlaying, setIsPlaying] = useState(false);
   const router = useRouter();
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const sparkleCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Lock page scroll while intro is shown so the overlay feels truly full-screen
   useEffect(() => {
@@ -34,6 +35,82 @@ export default function Intro() {
       v.pause();
     }
   }, [isPlaying]);
+
+  // Sparkle canvas overlay: draw tiny stars at grid intersections
+  useEffect(() => {
+    const canvas = sparkleCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const gridEl = document.querySelector<HTMLElement>(".grid-layer");
+    let cols = 5, rows = 5; // defaults
+    if (gridEl) {
+      const styles = getComputedStyle(gridEl);
+      const cVar = styles.getPropertyValue("--grid-cols").trim();
+      const rVar = styles.getPropertyValue("--grid-rows").trim();
+      const cNum = parseInt(cVar || "", 10);
+      const rNum = parseInt(rVar || "", 10);
+      if (!isNaN(cNum)) cols = cNum;
+      if (!isNaN(rNum)) rows = rNum;
+    }
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    type P = { x:number;y:number;alpha:number;life:number;max:number };
+    const particles: P[] = [];
+
+    const spawn = () => {
+      const w = canvas.width, h = canvas.height;
+      const cellW = w / cols;
+      const cellH = h / rows;
+      // choose a random intersection
+      const i = Math.floor(Math.random() * (cols + 1));
+      const j = Math.floor(Math.random() * (rows + 1));
+      const x = Math.round(i * cellW);
+      const y = Math.round(j * cellH);
+      particles.push({ x, y, alpha: 1, life: 0, max: 800 }); // ms
+    };
+
+    let last = performance.now();
+    const draw = (now: number) => {
+      const dt = now - last; last = now;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // update & draw
+      for (let k = particles.length - 1; k >= 0; k--) {
+        const p = particles[k];
+        p.life += dt;
+        p.alpha = Math.max(0, 1 - p.life / p.max);
+        // star: small cross
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.lineWidth = 1;
+        ctx.translate(p.x, p.y);
+        const s = 3; // star size
+        ctx.beginPath();
+        ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
+        ctx.moveTo(0, -s); ctx.lineTo(0, s);
+        ctx.stroke();
+        ctx.restore();
+        if (p.life >= p.max) particles.splice(k,1);
+      }
+      raf = requestAnimationFrame(draw);
+    };
+
+    const interval = setInterval(spawn, 1000);
+    let raf = requestAnimationFrame(draw);
+    return () => {
+      window.removeEventListener("resize", resize);
+      clearInterval(interval);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   function handleStart() {
     setLeaving(true);
@@ -64,7 +141,7 @@ export default function Intro() {
       <video
         ref={bgVideoRef}
         className={`fixed inset-0 w-full h-full object-cover transition-opacity duration-500 ${isPlaying ? "opacity-100" : "opacity-0"}`}
-        src="/chat.mp4"
+        src="/chat2.mp4"
         muted
         loop
         playsInline
@@ -75,14 +152,16 @@ export default function Intro() {
 
       {/* Grid overlay fixed to viewport */}
       <div className="grid-layer" />
+      {/* Sparkles canvas above grid, below content */}
+      <canvas ref={sparkleCanvasRef} className="fixed inset-0 z-[8] pointer-events-none" />
 
       {/* Top chrome */}
-      <div className="absolute top-6 left-6 z-20 text-xs md:text-sm tracking-widest text-white/80">CB 2025</div>
+      <div className="absolute top-6 left-6 z-20 text-xs md:text-sm tracking-widest text-white/80 font-ethno-bold">CB 2025</div>
       <a className="absolute top-6 right-6 z-20 text-xs md:text-sm tracking-wider text-white/80 hover:text-white/95" href="#">How to use?</a>
 
       {/* Centered title */}
       <div className="fixed inset-0 z-10 grid place-items-center px-6 select-none">
-        <h1 className="text-white/80 font-light text-3xl sm:text-5xl md:text-6xl tracking-[0.2em] sm:tracking-[0.4em] md:tracking-[0.6em] text-center whitespace-nowrap animate-rise">
+        <h1 className="text-white/80 font-ethno-bold text-3xl sm:text-5xl md:text-6xl tracking-[0.2em] sm:tracking-[0.4em] md:tracking-[0.6em] text-center whitespace-nowrap animate-rise">
           C h a t  B o x
         </h1>
       </div>
