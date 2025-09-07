@@ -7,12 +7,15 @@ import { useEffect } from "react";
 import { useConnection } from "@/store/useConnection";
 import { useChatStore } from "@/store/useChat";
 import { getSocket } from "@/lib/socket";
+import { fetchMe } from "@/lib/api";
+import { useAuth } from "@/store/useAuth";
 
 export default function ChatPage() {
   const { mode, baseUrl, init, initializing, setUserLanUrl, reinit } = useConnection();
   const setChannels = useChatStore((s) => s.setChannels);
   const setChannelMessages = useChatStore((s) => s.setChannelMessages);
   const activeChannelId = useChatStore((s) => s.activeChannelId);
+  const { displayName, avatarUrl, setProfile } = useAuth();
 
   // Initialize connection on mount
   useEffect(() => {
@@ -32,6 +35,17 @@ export default function ChatPage() {
       } catch {}
     })();
   }, [mode, baseUrl, setChannels]);
+
+  // Load current user profile (if token exists) for avatar/nickname
+  useEffect(() => {
+    (async () => {
+      if (mode !== "lan" || !baseUrl) return;
+      try {
+        const me = await fetchMe(baseUrl);
+        if (me?.user) setProfile(me.user);
+      } catch {}
+    })();
+  }, [mode, baseUrl, setProfile]);
 
   // Join room and fetch messages when channel changes in LAN mode
   useEffect(() => {
@@ -76,12 +90,22 @@ export default function ChatPage() {
         {/* Top bar */}
         <header className="flex items-center justify-between px-4 md:px-6 border-b border-white/10 bg-black/40 backdrop-blur-sm">
           <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full overflow-hidden border border-white/20 bg-white/10">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Me" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full grid place-items-center text-white/60">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><circle cx="12" cy="9" r="3.2"/><path d="M4 20c0-3.5 4-5.5 8-5.5s8 2 8 5.5"/></svg>
+                </div>
+              )}
+            </div>
             <div className="font-ethno-bold tracking-widest text-sm md:text-base">CHAT BOX</div>
           </div>
           <div className="flex items-center gap-3 text-xs md:text-sm text-white/70">
             {badge}
             <button
-              className="ml-2 rounded-md border border-white/20 bg-white/5 hover:bg-white/10 px-2 py-1"
+              className="ml-2 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 px-2 py-1"
               onClick={() => {
                 const v = prompt("Set LAN server URL", baseUrl || "http://192.168.0.100:4000");
                 if (v) {

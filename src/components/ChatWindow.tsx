@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/store/useAuth";
 import { useChatStore } from "@/store/useChat";
 import { useConnection } from "@/store/useConnection";
 import { getSocket } from "@/lib/socket";
@@ -15,10 +16,35 @@ export default function ChatWindow() {
   const [text, setText] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const { mode, baseUrl } = useConnection();
+  const [mySocketId, setMySocketId] = useState<string | null>(null);
+  const { displayName, avatarUrl, userId } = useAuth();
+  const normalizeAvatar = (u?: string | null) => {
+    if (!u) return null;
+    try {
+      const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
+      return u
+        .replace("http://localhost:4000", `http://${host}:4000`)
+        .replace("http://127.0.0.1:4000", `http://${host}:4000`);
+    } catch { return u; }
+  };
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages.length, activeChannelId]);
+
+  // Track my socket id for alignment
+  useEffect(() => {
+    if (!baseUrl) return;
+    try {
+      const s = getSocket(baseUrl);
+      const handler = () => setMySocketId(s.id || null);
+      handler();
+      s.on("connect", handler);
+      return () => {
+        s.off("connect", handler);
+      };
+    } catch {}
+  }, [baseUrl]);
 
   const timeFmt = useMemo(
     () =>
@@ -73,16 +99,61 @@ export default function ChatWindow() {
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((m) => (
-          <div key={m.id} className="flex gap-2 items-start">
-            <div className="h-8 w-8 rounded-full bg-gray-200" />
-            <div>
-              <div className="text-sm font-medium">{m.senderName}</div>
-              <div className="text-sm">{m.text}</div>
-              <div className="text-[10px] text-gray-500">{timeFmt.format(new Date(m.createdAt))}</div>
-            </div>
-          </div>
-        ))}
+        {(() => {
+          const lastOther = [...messages].reverse().find((mm) => {
+            const mineTest = (userId && mm.senderId === userId) || (mySocketId && mm.senderSocketId === mySocketId);
+            return !mineTest;
+          });
+          const lastOtherAvatar = lastOther?.senderAvatarUrl || null;
+          return messages.map((m) => {
+            const mine = (userId && m.senderId === userId) || (mySocketId && m.senderSocketId === mySocketId) ? true : false;
+            return (
+              <div key={m.id} className="space-y-1">
+                {/* Name label above bubble */}
+                <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                  <div className="text-[11px] opacity-70 px-12 pt-2">
+                    {mine ? "You" : m.senderName}
+                  </div>
+                </div>
+                <div className={`flex items-end ${mine ? "justify-end" : "justify-start"}`}>
+                  {!mine && (
+                    <div className="h-8 w-8 rounded-full bg-white/5 border border-white/25 mr-2 overflow-hidden">
+                      {normalizeAvatar(m.senderAvatarUrl) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={normalizeAvatar(m.senderAvatarUrl)!} alt={m.senderName} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full grid place-items-center text-white/50">?</div>
+                      )}
+                    </div>
+                  )}
+                  <div className={`max-w-[80%] rounded-full px-4 py-2 border ${mine ? "border-emerald-200/60" : "border-white/30"} text-white`}> 
+                    <div className="text-sm whitespace-pre-wrap break-words">{m.text}</div>
+                  </div>
+                  {mine && (
+                    <div className="h-8 w-8 rounded-full bg-white/5 border border-white/25 ml-2 overflow-hidden">
+                      {normalizeAvatar(avatarUrl) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={normalizeAvatar(avatarUrl)!} alt="Me" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full grid place-items-center text-white/50">?</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Meta row: time and tiny avatar-as-seen for own messages */}
+                <div className={`flex items-center ${mine ? "justify-end" : "justify-start"} gap-2 px-10 md:px-16`}>
+                  <div className="text-[10px] opacity-70">{timeFmt.format(new Date(m.createdAt))}</div>
+                  {mine && normalizeAvatar(lastOtherAvatar) && (
+                    <div className="h-4 w-4 rounded-full overflow-hidden border border-white/30">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={normalizeAvatar(lastOtherAvatar)!} alt="Seen by" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          });
+        })()}
         {messages.length === 0 && (
           <div className="text-sm text-gray-500">No messages. Say hello!</div>
         )}
@@ -92,11 +163,14 @@ export default function ChatWindow() {
           e.preventDefault();
           if (!text.trim() || !activeChannelId) return;
           const body = text.trim();
-          send(activeChannelId, body);
+          if (mode !== "lan") {
+            // offline/cloud mode: add locally
+            send(activeChannelId, body);
+          }
           if (mode === "lan" && baseUrl) {
             try {
               const socket = getSocket(baseUrl);
-              socket.emit("message:send", { channelId: activeChannelId, text: body });
+              socket.emit("message:send", { channelId: activeChannelId, text: body, senderName: displayName || "You", senderAvatarUrl: avatarUrl || null, senderId: userId || undefined });
             } catch {}
           }
           setText("");

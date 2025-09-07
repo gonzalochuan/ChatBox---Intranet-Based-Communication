@@ -1,27 +1,25 @@
 import { create } from "zustand";
 
-// Minimal local profile store (optional). Not required by DM feature.
 interface AuthState {
-  userId: string;
-  name: string;
-  setProfile: (name: string) => void;
+  userId: string | null;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  setProfile: (u: { id: string; email: string | null; name?: string | null; nickname?: string | null; avatarUrl?: string | null; }) => void;
 }
 
-const getLocal = (k: string, fallback: string) => {
-  if (typeof window === "undefined") return fallback;
-  try { return localStorage.getItem(k) || fallback; } catch { return fallback; }
-};
-
 export const useAuth = create<AuthState>((set) => ({
-  userId: getLocal("authId", "u-me"),
-  name: getLocal("authName", "You"),
-  setProfile: (name: string) => {
-    try {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("authName", name);
-        localStorage.setItem("authId", "u-me");
-      }
-    } catch {}
-    set({ name, userId: "u-me" });
+  userId: null,
+  email: null,
+  displayName: null,
+  avatarUrl: null,
+  setProfile: (u) => {
+    const display = u.nickname || u.name || u.email || "You";
+    set({
+      userId: u.id,
+      email: u.email,
+      displayName: display,
+      avatarUrl: u.avatarUrl || null,
+    });
   },
 }));

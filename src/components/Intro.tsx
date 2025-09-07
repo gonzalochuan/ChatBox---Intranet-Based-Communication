@@ -169,7 +169,7 @@ export default function Intro() {
       {/* Lower section: subtitle and button near bottom */}
       <div className="fixed left-0 right-0 z-10 px-6 select-none flex flex-col items-center gap-6 bottom-24 sm:bottom-28 md:bottom-32">
         <p className="text-center max-w-xl text-white/80 tracking-wide leading-relaxed animate-fade-in [animation-delay:200ms]">
-          Step into ChatBox — outside is text, inside is motion.
+          Step into ChatBox — Intranet Based Communication Platforms.
         </p>
         <button
           onClick={handleStart}

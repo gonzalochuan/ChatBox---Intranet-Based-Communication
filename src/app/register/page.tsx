@@ -1,22 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import SparkleGridOverlay from "@/components/SparkleGridOverlay";
+import { SERVER_URL } from "@/lib/config";
+import AlertBanner from "@/components/AlertBanner";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [studentId, setStudentId] = useState("");
   const [subjectCodes, setSubjectCodes] = useState<string[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
   const [schedules, setSchedules] = useState("");
   const [yearLevel, setYearLevel] = useState("1");
-  const [section, setSection] = useState("");
   const [block, setBlock] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const yearMenuRef = useRef<HTMLDivElement | null>(null);
   const [yearOpen, setYearOpen] = useState(false);
 
@@ -28,30 +33,41 @@ export default function RegisterPage() {
     if (!password.trim()) nextErrors.password = "Required";
     if (!studentId.trim()) nextErrors.studentId = "Required";
     if (!yearLevel.trim()) nextErrors.yearLevel = "Required";
-    if (!section.trim()) nextErrors.section = "Required";
+    // section removed; block is enough
     if (!block.trim()) nextErrors.block = "Required";
     if (!schedules.trim()) nextErrors.schedules = "Required";
     if (subjectCodes.length === 0) nextErrors.subjectCodes = "Add at least 1 subject";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
     setLoading(true);
+    setSubmitError(null);
     try {
-      // TODO: integrate backend user creation and group assignment
-      // This payload contains all the academic grouping info
-      const payload = {
-        name,
-        email,
-        password,
-        studentId,
-        subjectCodes,
-        schedules,
-        yearLevel,
-        section,
-        block,
-      };
-      console.log("Register payload", payload);
-      await new Promise((r) => setTimeout(r, 600));
-      window.location.href = "/chat"; // go to chat after mocked success
+      const resp = await fetch(`${SERVER_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          nickname,
+          email,
+          password,
+          studentId,
+          yearLevel,
+          block,
+          avatarUrl: avatarUrl || null,
+          subjectCodes,
+        }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data?.error || `Registration failed (${resp.status})`);
+      }
+      // const data = await resp.json(); // not auto-logging in
+      setSuccessMsg("Account created successfully. Redirecting to Sign in…");
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
+    } catch (err: any) {
+      setSubmitError(err?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -59,6 +75,8 @@ export default function RegisterPage() {
 
   return (
     <div className="relative min-h-[100dvh] text-white bg-black overflow-hidden">
+      {submitError && <AlertBanner kind="error" message={submitError} />}
+      {successMsg && <AlertBanner kind="success" message={successMsg} />}
       {/* Background to match Intro/Login */}
       <video
         className="pointer-events-none fixed inset-0 w-full h-full object-cover opacity-[0.06]"
@@ -82,6 +100,11 @@ export default function RegisterPage() {
           <p className="text-sm text-white/70 mt-4">Join ChatBox and your assigned groups</p>
 
           <form onSubmit={onSubmit} className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {submitError && (
+              <div className="sm:col-span-2 text-sm text-red-400/90 border border-red-400/40 rounded-xl bg-red-500/10 px-3 py-2">
+                {submitError}
+              </div>
+            )}
             <div className="sm:col-span-2">
               <label className="block text-xs uppercase tracking-widest text-white/60">Full name</label>
               <input
@@ -91,6 +114,75 @@ export default function RegisterPage() {
                 className={`mt-2 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2.5 text-white placeholder-white/40 outline-none focus:ring-2 focus:ring-white/30`}
                 placeholder="Juan Dela Cruz"
               />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-white/60">Nickname</label>
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                className={`mt-2 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2.5 text-white placeholder-white/40 outline-none focus:ring-2 focus:ring-white/30`}
+                placeholder="e.g., Juan, JD, Cruz"
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-widest text-white/60">Profile picture</label>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="h-32 w-32 shrink-0 aspect-square rounded-full border border-white/30 bg-white/10 overflow-hidden ring-1 ring-white/20">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="Avatar preview" className="h-full w-full object-cover rounded-full" />
+                  ) : (
+                    <div className="h-full w-full grid place-items-center text-white/50">No</div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 items-start">
+                  <div className="text-xs text-white/50">Recommended: square image. Max 8MB.</div>
+                  <label className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 hover:bg-white/15 active:bg-white/20 backdrop-blur-md px-3 py-2 text-sm cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        // 8MB client-side check
+                        const max = 8 * 1024 * 1024;
+                        if (file.size > max) {
+                          setSubmitError("Image too large. Max size is 8MB.");
+                          return;
+                        }
+                        // Show instant local preview
+                        const localUrl = URL.createObjectURL(file);
+                        setAvatarUrl(localUrl);
+                        const form = new FormData();
+                        form.append("avatar", file);
+                        try {
+                          const up = await fetch(`${SERVER_URL}/upload/avatar`, {
+                            method: "POST",
+                            body: form,
+                          });
+                          if (!up.ok) {
+                            throw new Error(`Upload failed (${up.status})`);
+                          }
+                          const data = await up.json();
+                          if (data?.url) {
+                            // Ensure absolute URL for preview across ports
+                            const absolute = `${SERVER_URL}${data.url}`;
+                            setAvatarUrl(absolute);
+                            // Optionally revoke local blob URL
+                            try { URL.revokeObjectURL(localUrl); } catch {}
+                          }
+                        } catch (err: any) {
+                          setSubmitError(err?.message || "Upload failed. Please try again.");
+                          // If upload fails, keep local preview but it won't persist
+                        }
+                      }}
+                    />
+                    <span>Upload</span>
+                  </label>
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-xs uppercase tracking-widest text-white/60">Email <span className="text-red-400">*</span></label>
@@ -199,17 +291,7 @@ export default function RegisterPage() {
               </div>
               {errors.yearLevel && <p className="mt-1 text-xs text-red-400/90">{errors.yearLevel}</p>}
             </div>
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-white/60">Section <span className="text-red-400">*</span></label>
-              <input
-                type="text"
-                value={section}
-                onChange={(e) => setSection(e.target.value)}
-                className={`mt-2 w-full rounded-xl border ${errors.section ? "border-red-400/60" : "border-white/20"} bg-white/5 px-3 py-2.5 text-white placeholder-white/40 outline-none focus:ring-2 focus:ring-white/30`}
-                placeholder="A"
-              />
-              {errors.section && <p className="mt-1 text-xs text-red-400/90">{errors.section}</p>}
-            </div>
+            {/* Section removed (block is sufficient) */}
             <div>
               <label className="block text-xs uppercase tracking-widest text-white/60">Block <span className="text-red-400">*</span></label>
               <input

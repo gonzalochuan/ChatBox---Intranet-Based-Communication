@@ -39,8 +39,7 @@ export function getSocket(baseUrl: string): Socket {
       currentSocketId = null;
     });
     socket.on("message:new", (msg: Message) => {
-      // ignore own echo
-      if (currentSocketId && msg.senderId === currentSocketId) return;
+      // Always accept server echo so messages persist after navigation/refresh
       useChatStore.getState().addIncoming(msg);
     });
     listenersBound = true;

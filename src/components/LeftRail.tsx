@@ -1,6 +1,7 @@
 "use client";
 
 import { useUI } from "@/store/useUI";
+import { useAuth } from "@/store/useAuth";
 import { useEffect } from "react";
 
 const Icon = {
@@ -54,6 +55,7 @@ const Icon = {
 export default function LeftRail() {
   const setFilter = useUI((s) => s.setChannelFilter);
   const current = useUI((s) => s.channelFilter);
+  const { avatarUrl } = useAuth();
 
   // Ensure the html class matches the persisted theme on mount
   useEffect(() => {
@@ -76,8 +78,15 @@ export default function LeftRail() {
     <nav className="w-full h-full flex md:flex-col items-center md:items-center justify-between md:justify-start gap-2 md:gap-6 py-2 md:py-6 px-2 md:px-3 md:w-16">
       {/* Profile (bigger on desktop) */}
       <div className="shrink-0">
-        <div className="h-10 w-10 md:h-14 md:w-14 rounded-full border border-white/20 bg-white/5 grid place-items-center text-white/90">
-          {Icon.profile}
+        <div className="h-10 w-10 md:h-14 md:w-14 rounded-full border border-white/20 bg-white/5 overflow-hidden">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="Me" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full grid place-items-center text-white/90">
+              {Icon.profile}
+            </div>
+          )}
         </div>
       </div>
 

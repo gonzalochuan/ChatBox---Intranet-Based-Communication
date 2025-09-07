@@ -3,20 +3,36 @@
 import Link from "next/link";
 import SparkleGridOverlay from "@/components/SparkleGridOverlay";
 import { useState } from "react";
+import { SERVER_URL } from "@/lib/config";
+import { setToken } from "@/lib/auth";
+import AlertBanner from "@/components/AlertBanner";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
     try {
-      // TODO: integrate Firebase Auth signInWithEmailAndPassword
-      await new Promise((r) => setTimeout(r, 600));
-      // route to /chat on success (we'll add real auth later)
+      const resp = await fetch(`${SERVER_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data?.error || `Login failed (${resp.status})`);
+      }
+      const data = await resp.json();
+      if (!data?.token) throw new Error("invalid_response");
+      setToken(data.token);
       window.location.href = "/chat";
+    } catch (err: any) {
+      setError(err?.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
@@ -24,6 +40,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-[100dvh] text-white bg-black overflow-hidden">
+      {error && <AlertBanner kind="error" message={error} />}
       {/* Background layers */}
       <video
         className="pointer-events-none fixed inset-0 w-full h-full object-cover opacity-[0.06]"
